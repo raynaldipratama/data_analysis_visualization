@@ -1,0 +1,441 @@
+---
+title: "Bilbao-Vizcaya buoy data analysis: the annual energy production estimation -- MWT-92/2.4"
+author: "Raynaldi Pratama"
+date: "22/06/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Notes**: The geodata visualisation scripts used throughout this project may refer to [Bathymetry: the Bay of Biscay](https://rpubs.com/raynaldiprtm/bathyBiscay). For comparison purpose, by using similar steps, the variation of wind turbine capacity (and buoy location) has been introduced in another documentation and is accessible through the following links:
+
+* [Bilbao-Vizcaya buoy data analysis: the annual energy production estimation -- G128-5.0](https://rpubs.com/raynaldiprtm/buoyBV-5000)
+* [Dragonera buoy data analysis: the annual energy production estimation -- V164-8.0](https://rpubs.com/raynaldiprtm/buoyDG-8000)
+
+***
+
+```{r pkg-install-all, eval=FALSE}
+install.packages(c("maptools", "openair"))
+```
+
+## Representing Bilbao-Vizcaya buoy location on the map
+
+In this case study, Bilbao-Vizcaya buoy has been chosen. The specific location should then be specified according to the correct coordinates on the map. It can be obtained through the Spanish authorities web portal, [Puertos del Estado](http://www.puertos.es/en-us/oceanografia/Pages/portus.aspx). However, please note that the buoy dataset used for this particular project should be retrieved separately from any other sources whichever available.
+
+```{r pkg-ggplot2-ggspatial-maps-sf, message=FALSE}
+library("ggplot2")
+theme_set(theme_bw()) # The classic dark-on-light theme works better in 'ggplot2' (optional)
+library("ggspatial")
+library("maps")
+library("sf")
+```
+
+```{r countries}
+countries <- st_as_sf(map("world", plot = FALSE, fill = TRUE))
+head(countries)
+```
+
+```{r plot-buoyBV-finalMap, fig.align='center', message=FALSE}
+ggplot(data = countries) +
+  geom_sf() +
+  annotation_scale(width_hint = 0.5, location = "bl") +
+  annotation_north_arrow(
+    location = "tl",
+    height = unit(1.5, "cm"),
+    width = unit(1.5, "cm"),
+    pad_x = unit(0.25, "cm"),
+    pad_y = unit(0.25, "cm"),
+    style = north_arrow_fancy_orienteering
+  ) +
+  annotate(
+    geom = "text",
+    x = -5,
+    y = 46,
+    label = "Bay of Biscay",
+    fontface = "italic",
+    color = "darkblue",
+    size = 4
+  ) +
+  annotate(
+    geom = "text",
+    x = -5,
+    y = 43,
+    label = "Spain",
+    fontface = "bold",
+    color = "black",
+    size = 4
+  ) +
+  annotate(
+    geom = "text",
+    x = -2,
+    y = 48,
+    label = "France",
+    fontface = "bold",
+    color = "black",
+    size = 4
+  ) +
+  annotate(
+    geom = "point",
+    x = -3.04,
+    y = 43.63,
+    colour = "red",
+    size = 2
+  ) +
+  annotate(
+    geom = "text",
+    x = -3,
+    y = 43.85,
+    label = "Bilbao-Vizcaya buoy"
+  ) +
+  coord_sf(xlim = c(-8, 0), ylim = c(42.5, 48.5), expand = FALSE) +
+  theme(
+    panel.grid.major = element_line(color = gray(0.5), linetype = "dashed", size = 0.5),
+    panel.background = element_rect(fill = "aliceblue")
+  ) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  ggtitle("Bilbao-Vizcaya buoy location")
+```
+
+***
+
+## Estimating the average wind speed at the hub height
+
+In this section, we try to estimate the average wind speed at the hub height based on the wind recorded data from the 3 m reference height of the buoy. This approach is useful, suppose we are planning to deploy the real offshore wind turbine (OWT) near the buoy location. In this case, an OWT of MWT-92/2.4 with 70 m hub height has been chosen. Another pre-determined condition should be taken into consideration: the terrain profile of 'blown sea' with the surface roughness length (approximated) value of 0.50 mm.
+
+```{r pkg-dplyr, message=FALSE}
+library("dplyr")
+```
+
+```{r buoydata, warning=FALSE}
+buoydata <- file.path("~", "R-buoy", "BilbaoVizcaya.txt")
+buoydata <- read.table(buoydata, header = TRUE)
+buoydata <- buoydata %>%
+  filter(buoydata$AA > "2009") # To obtain the best records and to avoid a whole-year missing data
+
+summary(buoydata)
+```
+
+At this point, we may notice that the buoy dataset contains many of NA's value, including the particular observation of the wind speed 'Vv_md' column, we need to handle. One way to take care of these NA's value is by omitting them by using **`na.omit()`**. For this typical dataset, by only eliminating the NA's data, will give much different result since the total observation of each category is related to one another. Thus, replacing NA's with the proper value, e.g., the average or median of the recorded data, has to be considered.
+
+However, as the analysis continues, another uncommon situation of data distribution might arise, such as the presence of a considerable amount of outliers after imputing different value to NA's. We, therefore, may also need to take off these outliers the same way as we have done with NA's value. Alternatively, instead of replacing with the average or median of the data, we can introduce random value generated using [the uniform distribution funtion](https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/Uniform), **`runif()`**. The arguments should be put correctly according to the summary of the recorded data, i.e., the total of NA's, minimum and maximum value.
+
+Note that, this method might not be valid nor could be applied to all datasets. Besides, the results would also be varied (with small differences) every time we run the script since we put random numbers in the analysis. Yet, to satisfy the final result, it is worth trying; thus, some comparisons and trial and error are needed along the way to fit the data.
+
+Additionally, the **`na_if`** function can be accessed through **`dplyr`** package, which, in this section, is used to change "NAN" with "na", so that R will be able to read such data.
+
+```{r windSpeed}
+windSpeed <- na_if(buoydata$Vv_md, "NAN")
+windSpeed[is.na(windSpeed)] <- mean(windSpeed, na.rm = TRUE)
+summary(windSpeed)
+```
+
+To estimate the wind speed at 70 m hub height, we may use the equation based on the Logarithmic Law, which written as follows:
+
+$$\frac{U(z)}{U(z_r)} = \frac{ln(\frac{z}{z_0})}{ln(\frac{z_r}{z_0})}$$
+
+Where, $U$ = Wind speed (m/s); $z_0$ = Surface roughness length (approximated) value (m); $z_r$ = Reference height (m).
+
+```{r windSpeed70}
+windSpeed70 <- windSpeed * log(70 / 0.0005) / log(3 / 0.0005)
+summary(windSpeed70)
+```
+
+***
+
+## Fitting the wind speed data into Weibull distribution
+
+It has been mentioned in many works of literature, from the historical records, the wind speed data likely follows the Weibull or Rayleigh probability density function. It can also be observed from the resulting histogram that fits the pattern of either distribution. However, the parameter value regarding this historical data, i.e., shape (k) and scale (c), can't be noticed right away only from the histogram profile; thus, the calculation is needed.
+
+```{r pkg-MASS, message=FALSE}
+library("MASS")
+```
+
+Now, to get the real k and c parameter of Weibull distribution according to the data, we can use **`fitdistr`** function from **`MASS`** package. The usage of this function is explained [in this link](https://www.rdocumentation.org/packages/MASS/versions/7.3-50/topics/fitdistr). Furthermore, the explanation of extracting model coefficients using **`coef()`** can be found [in this link](https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/coef).
+
+```{r windSpeed70-modified}
+windSpeed70[windSpeed70 == 0] <- 0.0001 # Weibull values must be > 0
+summary(windSpeed70)
+```
+
+```{r parameters-k-c, warning=FALSE}
+(k <- coef(
+  fitdistr(windSpeed70, "weibull")
+)[1]
+)
+(c <- coef(
+  fitdistr(windSpeed70, "weibull")
+)[2]
+)
+```
+
+Using the following equation, the average wind speed may also be estimated considering both parameters k and c are known.
+
+$$\overline{U} = c*\Gamma(1 + \frac{1}{k})$$
+
+Where, $\overline{U}$ = Average wind speed (m/s); $\Gamma(x)$ = Gamma function = $\int_0^\infty e^{-t} t^{x - 1} dt$.
+
+```{r histogram-windSpeed70, fig.align='center'}
+qVector <- seq(0, 30, 1) # Vector of quantiles
+weibulldistr <- dweibull(qVector, k, c)
+histogram <- hist(windSpeed70,
+  qVector,
+  main = "Distribution of estimated wind speeds at 70 m height",
+  xlab = "Wind speed (m/s)",
+  ylim = c(0, 5000)
+)
+```
+
+```{r fitted-densityCurve-histogram, fig.align='center'}
+plot(histogram,
+  freq = FALSE,
+  col = "lightsteelblue",
+  main = "Wind speeds distribution (Weibull) fit",
+  xlab = "Wind speed (m/s)",
+  ylim = c(0, 0.14)
+)
+lines(qVector, weibulldistr, type = "b", lwd = 5, col = "red")
+```
+
+Now that we have obtained the Weibull distribution shape and scale parameters, by using the cumulative distribution function (frequency of occurrence below U) we can estimate the annual working hours between the cut-in and cut-out speed of OWT. The cut-in and cut-out speeds are 3 m/s and 25 m/s respectively, and the cumulative distribution function is written as follows:
+
+$$F(U) = 1 - exp[ -(\frac{U}{c})^k]$$
+
+```{r workinghrs}
+F3 <- 1 - exp(-((3 / c)^k))
+F25 <- 1 - exp(-((25 / c)^k))
+(workinghrs <- (F25 - F3) * 365.25 * 24) # Considering 365.25 days per year
+```
+
+***
+
+## Estimating the initial AEP and CF of OWT
+
+Below are the steps of estimating the initial value of the annual energy production (AEP) and capacity factor (CP) of OWT without considering the power curve of the turbine. AEP can be calculated using the following equation:
+
+$$AEP = eff * 0.5 * \rho * A * c^3 * \Gamma(1 + \frac{3}{k}) * (365.25 * 24)$$
+
+Where, $eff$ = 0.4 (total efficiency for aerodynamic and electro-mechanic); $A$ = Blade swept area (m^2^); $D$ = Blade diameter of 92 (m); $AEP$ = Annual energy production (GWh).
+
+```{r A}
+eff <- 0.4
+R <- 92 / 2
+A <- pi * R^2
+```
+
+```{r Ps}
+Ps <- na_if(buoydata$Ps, "NAN")
+Ps[is.na(Ps)] <- mean(Ps, na.rm = TRUE)
+Ps <- Ps * 10^2 # Pressure unit conversion from mbar to Pa
+summary(Ps)
+```
+
+```{r Ta}
+Ta <- na_if(buoydata$Ta, "NAN")
+Ta[is.na(Ta)] <- mean(Ta, na.rm = TRUE)
+Ta <- Ta + 273 # Temperature unit conversion from Celcius to Kelvin
+summary(Ta)
+```
+
+```{r AEP0}
+rho <- Ps / (287.058 * Ta) # Air density in kg/m^3
+AEP0 <- eff * 0.5 * mean(rho) * A * c^3 * gamma(1 + (3 / k)) * (365.25 * 24)
+(AEP0 <- AEP0 * 10^-9) # AEP unit conversion from Wh to GWh
+```
+
+```{r CF0}
+(CF0 <- AEP0 / (2.4 * (365.25 * 24) * 10^-3))
+```
+
+From the results above we can see that, the initial AEP is considered as a relatively high for the typical wind turbine, as well as its CF. The power curve thus needs also to be taken into consideration while calculating the real value of AEP and CF.
+
+***
+
+## Estimating the wind power density
+
+The wind power density can be estimated using the equation below:
+
+$$\frac{P}{A} = 0.5 * \rho * U^3$$
+
+Where, $P / A$ = Wind power density (W/m^2^) with the following classification:
+
+* $\overline{P} / A < 100$ W/m^2^ - low
+* $\overline{P} / A \approx 400$ W/m^2^ - good
+* $\overline{P} / A > 700$ W/m^2^ - great
+
+```{r monthlyAirDensity, fig.align='center'}
+monthlyAirDensity <- cbind(buoydata[, 1:4], rho)
+boxplot(monthlyAirDensity[, 5] ~ monthlyAirDensity[, 2],
+  col = rainbow(12),
+  xlab = "Months",
+  ylab = "Air density"
+)
+title("Monthly air density")
+```
+
+```{r WPD}
+WPD <- 0.5 * rho * (windSpeed70^3)
+summary(WPD)
+```
+
+***
+
+## Plotting the wind rose during winter and summer
+
+Follow these steps to plot the wind rose, to visualise how the wind blows in a particular area with a specific velocity and direction during the extreme seasons, winter and summer. The results can be compared to the one provided on the Spanish authorities website, [Puertos del Estado](http://www.puertos.es/en-us/oceanografia/Pages/portus.aspx), by specifying the exact period of observation. The method used to handle the NA's value in the following script has been mentioned in the earlier section. The only addition is that we need to specify which months belong to each season. In this case, "DES-JAN-FEB" belongs to winter, while "JUN-JUL-AUG" belongs to summer as a standard convention being used.
+
+Go to [this link](https://davidcarslaw.github.io/openair/reference/windRose.html) to get familiar with the wind rose plot.
+
+```{r pkg-openair, warning=FALSE}
+library("openair")
+```
+
+```{r winter}
+winter <- buoydata %>%
+  filter(buoydata$MM == 12 |
+    buoydata$MM == 1 |
+    buoydata$MM == 2) # DES-JAN-FEB
+
+windRoseSpd_winter <- winter[, 22]
+windRoseSpd_winter <- na_if(windRoseSpd_winter, "NAN")
+windRoseSpd_winter[is.na(windRoseSpd_winter)] <- mean(windRoseSpd_winter, na.rm = TRUE)
+
+windRoseSpd70_winter <- windRoseSpd_winter * log(70 / 0.0005) / log(3 / 0.0005)
+summary(windRoseSpd70_winter)
+
+windRoseDir_winter <- winter[, 23]
+windRoseDir_winter <- na_if(windRoseDir_winter, "NAN") # Total NA's value: 2208
+windRoseDir_winter[is.na(windRoseDir_winter)] <- runif(2208, min = 0, max = 360) # Replacing NA's value with the uniform distributed random numbers
+summary(windRoseDir_winter)
+```
+
+```{r matrixA}
+A <- matrix(NA, nrow = length(windRoseSpd70_winter), ncol = 2)
+A[, 1] <- windRoseSpd70_winter
+A[, 2] <- windRoseDir_winter
+A <- as.data.frame(A)
+names(A)[1] <- "Speed"
+names(A)[2] <- "Direction"
+head(A)
+```
+
+```{r windRoseWinter, fig.align='center'}
+windRose(A,
+  ws = "Speed",
+  wd = "Direction",
+  ws.int = 4,
+  angle = 22.5,
+  cols = "hue",
+  paddle = FALSE,
+)
+```
+
+```{r summer}
+summer <- buoydata %>%
+  filter(buoydata$MM == 6 |
+    buoydata$MM == 7 |
+    buoydata$MM == 8) # JUN-JUL-AUG
+
+windRoseSpd_summer <- summer[, 22]
+windRoseSpd_summer <- na_if(windRoseSpd_summer, "NAN")
+windRoseSpd_summer[is.na(windRoseSpd_summer)] <- mean(windRoseSpd_summer, na.rm = TRUE)
+
+windRoseSpd70_summer <- windRoseSpd_summer * log(70 / 0.0005) / log(3 / 0.0005)
+summary(windRoseSpd70_summer)
+
+windRoseDir_summer <- summer[, 23]
+windRoseDir_summer <- na_if(windRoseDir_summer, "NAN") # Total NA's value: 2208
+windRoseDir_summer[is.na(windRoseDir_summer)] <- runif(2208, min = 0, max = 360) # Replacing NA's value with the uniform distributed random numbers
+summary(windRoseDir_summer)
+```
+
+```{r matrixB}
+B <- matrix(NA, nrow = length(windRoseSpd70_summer), ncol = 2)
+B[, 1] <- windRoseSpd70_summer
+B[, 2] <- windRoseDir_summer
+B <- as.data.frame(B)
+names(B)[1] <- "Speed"
+names(B)[2] <- "Direction"
+head(B)
+```
+
+```{r windRoseSummer, fig.align='center'}
+windRose(B,
+  ws = "Speed",
+  wd = "Direction",
+  ws.int = 4,
+  angle = 22.5,
+  cols = "hue",
+  paddle = FALSE,
+)
+```
+
+***
+
+## Calculating the sea surface roughness
+
+The following steps show how to calculate the surface roughness using the equation suggested by Taylor and Yelland, 2001 as follows:
+
+$$\frac{z_0}{Hs} = 1200 * (\frac{Hs}{Lp})^{4.5}$$
+
+$$Lp = \frac{g * T^2}{2\pi} \sqrt {tanh(\frac{4\pi^2 * d}{T^2 * g})}$$
+
+Where, $T = Tm$ = Wave period in time unit; $d$ = Anchoring depth of the buoy (m); $Hs$ = Significant wave height (m); $Lp$ = Wavelength (m).
+
+```{r Tm}
+Tm <- na_if(buoydata$Tm02, "NAN")
+Tm[is.na(Tm)] <- mean(Tm, na.rm = TRUE)
+summary(Tm) # Wave period
+```
+
+```{r Hs}
+Hs <- na_if(buoydata$Hm0, "NAN")
+Hs[is.na(Hs)] <- mean(Hs, na.rm = TRUE)
+summary(Hs) # Significant wave height
+```
+
+The anchoring depth of the observed buoy can be obtained from [Puertos del Estado](http://www.puertos.es/en-us/oceanografia/Pages/portus.aspx), which is 580 m.
+
+```{r z0}
+d <- 580 # Anchoring depth of the buoy in m
+g <- 9.81 # Gravity
+
+waveLength <- ((g * Tm^2) / (2 * pi)) * sqrt(tanh((4 * pi^2 * d) / (Tm^2 * g)))
+
+z0 <- Hs * 1200 * ((Hs / waveLength)^4.5)
+z0 <- z0 * 1000 # Sea surface roughness unit conversion from m to mm
+summary(z0)
+```
+
+***
+
+## Calculating actual AEP and CF
+
+In this part, the actual annual energy production (AEP) and capacity factor (CF) is calculated by introducing the OWT's power curve data. Hence, to fit the wind speed data, which represented by the histogram, and the power curve, both length of datasets needs to be adjusted. It is known that the size of the histogram density is 30, and the size of the power curve data is 25. Therefore, the extra elements (5 elements) of the power curve have to be added to match the length of the histogram density. As a result, the power curve observation will then have as many as 30 elements. Up to this point, We should also take into consideration that the cut-off speed of the OWT is 25 m/s. it means that the wind turbine will not produce the energy as the wind speed goes above 25 m/s; thus, the power generated following the remaining wind speeds will be 0.
+
+Additionally, the extra elements for the power curve data are added by using **`rep()`** function. The documentation of this function can be accessed through [this link](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/rep).
+
+```{r dataPC, warning=FALSE}
+PC <- file.path("~", "R-buoy", "PC_MWT92-2.4.txt")
+PC <- read.table(PC, header = TRUE) # Wind turbine power curve
+
+density <- histogram$density # Sum of pdf must be equal to 1
+ntimes <- length(density) - nrow(PC) # as a second argument in rep() to add extra elements (as many as n-times) in PC
+
+(dataPC <- c(PC[, 2], rep(0, ntimes))) # Size of dataPC equals to length of density: 30 elements
+```
+
+Another method to calculate the capacity factor (CF) is proposed by Masters, 2004, which is presented as follows:
+
+$$CF = 0.087 * \overline{U} - \frac{P_R}{D^2}$$
+Where, $P_R$ = Rated power of OWT (Watts or MW).
+
+```{r AEP-CF1-CF2}
+(AEP <- sum(density * dataPC) * (365.25 * 24) * 10^-6)
+(CF1 <- AEP / (2400 * 10^-6 * (365.25 * 24)))
+(CF2 <- 0.087 * mean(windSpeed70) - (2400 / 92^2))
+```
+
+As the results, by introducing the power curve, the more realistic AEP for a single wind turbine in such area is obtained with $\approx 7.33$ GWh, while the suggested lower and upper limit of CF are 0.294 and 0.348 respectively.

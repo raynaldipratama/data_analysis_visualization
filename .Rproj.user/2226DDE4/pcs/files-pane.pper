@@ -1,0 +1,17 @@
+{
+    "sortOrder": [
+        {
+            "columnIndex": 4,
+            "ascending": true
+        },
+        {
+            "columnIndex": 3,
+            "ascending": false
+        },
+        {
+            "columnIndex": 2,
+            "ascending": false
+        }
+    ],
+    "path": "C:/Users/rayna/OneDrive/data_analysis_visualization"
+}
