@@ -232,13 +232,13 @@ dataPC <- c(PC[, 2], rep(0, ntimes)) # Size of dataPC equals to length of densit
 
 dataPC
 
-# * Calculate the actual AEP ----
+# * Calculate actual AEP ----
 
 AEP <- sum(density * dataPC) * (365 * 24) * 10^-6
 
 AEP
 
-# * Calculate the actual CF limit ----
+# * Calculate actual CF limit ----
 
 CF1 <- AEP / (2400 * 10^-6 * (365.25 * 24))
 

@@ -1,6 +1,6 @@
 # LIBRARIES ----
 
-# Quickly isualizing data
+# Quickly visualizing data
 library(visdat)
 
 # Working with NA's
