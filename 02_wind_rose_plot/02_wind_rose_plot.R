@@ -126,7 +126,7 @@ windRose(winter_df,
   ws.int = 4,
   angle = 22.5,
   cols = "hue",
-  paddle = FALSE,
+  paddle = FALSE
 )
 
 # * Plot for summer wind data ----
@@ -144,5 +144,5 @@ windRose(summer_df,
   ws.int = 4,
   angle = 22.5,
   cols = "hue",
-  paddle = FALSE,
+  paddle = FALSE
 )
