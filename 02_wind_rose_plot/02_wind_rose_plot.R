@@ -51,7 +51,7 @@ wind_df_tbl
 
 # 2.0 Missing data visualization ----
 
-# * vis_dat() -----
+# * vis_dat() ----
 
 wind_df_tbl %>% vis_dat()
 

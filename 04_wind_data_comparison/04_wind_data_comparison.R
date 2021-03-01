@@ -115,12 +115,31 @@ length(windSpeed10) # Bibao-Vizcaya buoy
 
 length(windModel) # ERA-Interim
 
+# * Plot the both wind data ----
+
+plot(c(1:length(windSpeed10)), windModel,
+  type = "l",
+  main = "Wind data from buoy and ERAI model",
+  xlab = "Number of records",
+  ylab = "Wind speed (m/s)",
+  col = "blue"
+)
+
+lines(windSpeed10, col = "red")
+
+legend("topleft",
+  col = c("red", "blue"),
+  lty = 1,
+  legend = c("Wind data from buoy", "Wind data from ERAI model")
+)
+
+
 # 3.0 Box plot and wind rose ----
 
 # * Box plot ----
 
 boxplot(windSpeed10, windModel,
-  col = c("green", "yellow"),
+  col = c("red", "blue"),
   names = c("Bilbao-Vizcaya buoy", "ERA-Interim"),
   ylab = "Wind speed (m/s)",
   main = "Wind data (speed) comparison for Oct-2011 records"
