@@ -329,7 +329,7 @@ In this part, the actual annual energy production (AEP) and capacity factor (CF)
 
 Additionally, the extra elements for the power curve data are added using **`rep()`** function. The documentation of this function can be accessed through [this link](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/rep).
 
-### Incorporate power curve data
+### Incorporate the power curve data
 
 ```{r}
 PC <- read.table("PC_MWT92-2.4.txt", header = TRUE) # Wind turbine power curve

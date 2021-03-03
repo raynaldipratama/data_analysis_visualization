@@ -218,7 +218,7 @@ summary(WPD)
 
 # 6.0 Actual AEP and CF ----
 
-# * Incorporate power curve data ----
+# * Incorporate the power curve data ----
 
 PC <- file.path("00_data/PC_MWT92-2.4.txt")
 
