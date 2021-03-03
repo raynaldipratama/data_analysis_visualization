@@ -154,7 +154,7 @@ workinghrs
 
 # 4.0 Initial AEP and CF ----
 
-# * Specify turbine's data ----
+# * Specify turbine's parameters ----
 
 eff <- 0.4
 
@@ -182,7 +182,7 @@ Ta <- Ta + 273 # Temperature unit conversion from Celcius to Kelvin
 
 summary(Ta)
 
-# * Calculate initial AEP ----
+# * Calculate the initial AEP ----
 
 rho <- Ps / (287.058 * Ta) # Air density in kg/m^3
 
@@ -190,7 +190,7 @@ AEP0 <- eff * 0.5 * mean(rho) * A * c^3 * gamma(1 + (3 / k)) * (365 * 24)
 
 (AEP0 <- AEP0 * 10^-9) # AEP unit conversion from Wh to GWh
 
-# * Calculate initial CF ----
+# * Calculate the initial CF ----
 
 CF0 <- AEP0 / (2.4 * (365 * 24) * 10^-3)
 
@@ -232,13 +232,13 @@ dataPC <- c(PC[, 2], rep(0, ntimes)) # Size of dataPC equals to length of densit
 
 dataPC
 
-# * Calculate actual AEP ----
+# * Calculate the actual AEP ----
 
 AEP <- sum(density * dataPC) * (365 * 24) * 10^-6
 
 AEP
 
-# * Calculate actual CF limit ----
+# * Calculate the actual CF ----
 
 CF1 <- AEP / (2400 * 10^-6 * (365.25 * 24))
 
