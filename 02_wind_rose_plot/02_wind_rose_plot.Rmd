@@ -1,0 +1,214 @@
+---
+title: "Wind rose plot"
+author: "*Raynaldi Pratama*"
+#date: "03/03/2021"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Notes:** This portfolio presents the steps to create wind rose visualizations based on Bilbao-Vizcaya buoy data records, including some techniques to handle missing values within the dataset. These techniques were introduced by **Matt Dancho** of [Business Science](https://www.business-science.io/) through his Free R-Tips, which can be found [here](https://github.com/business-science/free_r_tips).
+
+**Library setup:**
+
+```{r warning=FALSE, message=FALSE}
+# Quickly visualizing data
+library(visdat)
+
+# Working with NA's
+library(naniar)
+
+# Simple imputation
+library(simputation)
+library(randomForest)
+
+# Manipulating and analysing data
+library(tidyverse)
+
+# Wind rose plot
+library(openair)
+```
+
+***
+
+## Bilbao-Vizcaya buoy data
+
+### Load the data
+
+```{r}
+buoydata <- read.table("BilbaoVizcaya.txt", header = TRUE) # Find the coresponding file inside 00_data/
+
+buoydata <- buoydata %>%
+  filter(buoydata$AA > "2009") # To obtain the best records and to avoid a whole-year missing data
+
+summary(buoydata)
+```
+
+### Wind speed and direction
+
+```{r}
+year <- buoydata$AA
+
+month <- buoydata$MM
+
+day <- buoydata$DD
+
+hour <- buoydata$HH
+
+wind_spd <- buoydata$Vv_md
+
+wind_dir <- buoydata$Dv_md
+
+wind_df <- data.frame(year, month, day, hour, wind_spd, wind_dir)
+
+wind_df_tbl <- wind_df %>% as_tibble()
+
+wind_df_tbl
+```
+
+***
+
+## Missing data visualizations
+
+### **`vis_dat()`** command
+
+```{r fig.align='center'}
+wind_df_tbl %>% vis_dat()
+```
+
+From the figure above, the missing values occur at around the observation number 20000 to 25000. We can also see the portion of the NAs in grey against the whole recorded data. However, this figure fails to show the percentage of the NAs contained within this particular dataset.
+
+### **`vis_mis()`** command
+
+```{r fig.align='center'}
+wind_df_tbl %>% vis_miss()
+```
+
+To fill the information gap from the previous figure, another visualization, as depicted in the figure above, may also be considered. From this figure, we can get a clear percentage of missing values in our dataset, both for wind speed and wind direction.
+
+### **`gg_miss_upset()`** command
+
+```{r fig.align='center', message=FALSE}
+wind_df_tbl %>% gg_miss_upset()
+```
+
+The figure above meant to visualize the correlation between the missing data from both categories, wind speed and wind direction. If there was any correlation presented in this figure, there was likely an issue with the sensor that may be happened during the observation. However, in this case, missing values in both categories are just a common case since they are independent of each other.
+
+### **`geom_miss_point()`** command
+
+```{r fig.align='center'}
+wind_df_tbl %>%
+  ggplot(aes(x = wind_dir, y = wind_spd)) +
+  geom_miss_point()
+```
+
+We can see how all recorded data corresponding to wind speed and wind direction are distributed from the figure above. Off all the visualized data, we can also see the visualization of missing values in red dots from both data categories. There are depicted missing values for wind direction to the left part of the figure, while the lower part of the figure shows some missing values for wind speed.
+
+***
+
+## Missing data imputation
+
+### Linear model imputation
+
+Below are codes written to perform a simple imputation to replace missing values for wind direction using the linear model imputation method, **`impute_lm()`**. In this case, the missing values will be replaced with new values that follow the linear model as a wind speed function (and month). We might want to consider "month" to give a good sense of wind direction variation during the whole year records.
+
+```{r fig.align='center', warning=FALSE}
+wind_df_tbl %>%
+
+  # Label if wind_spd is missing
+  add_label_missings(wind_dir) %>%
+
+  # Imputation - Linear Regression
+  impute_lm(wind_dir ~ wind_spd + month) %>%
+
+  # Visualize
+  ggplot(aes(wind_dir, wind_spd, color = any_missing)) +
+  geom_point()
+```
+
+### Random forest imputation
+
+Below are codes written to perform a simple imputation to replace missing values for wind direction using the random forest imputation method, **`impute_rf()`**. 
+As it is explained previously, the missing values will be replaced by some values that matched a certain model; here is a random forest, using wind direction as a function of wind speed and month.
+
+```{r fig.align='center', warning=FALSE}
+wind_df_tbl %>%
+
+  # Label if wind_spd is missing
+  add_label_missings(wind_dir) %>%
+
+  # Imputation - Random Forest
+  impute_rf(wind_dir ~ wind_spd + month) %>%
+
+  # Visualize
+  ggplot(aes(wind_dir, wind_spd, color = any_missing)) +
+  geom_point()
+```
+
+### Save the result as an object
+
+```{r}
+wind_df_tbl_fixed <- wind_df_tbl %>%
+
+  # Label if wind_spd is missing
+  add_label_missings(wind_dir) %>%
+
+  # Imputation - Random Forest
+  impute_rf(wind_dir ~ wind_spd + month)
+```
+
+***
+
+## Wind rose plot
+
+Follow these steps to plot the wind rose to visualise how the wind blows in a particular area with a specific velocity and direction during the extreme seasons, winter and summer. The results can be compared to the one provided on the Spanish authorities website, [Puertos del Estado](http://www.puertos.es/en-us/oceanografia/Pages/portus.aspx), by specifying the exact period of observation. The method used to handle the NA's value in the following script has been mentioned in the earlier section. The only addition is that we need to specify which months belong to each season. In this case, "DEC-JAN-FEB" belongs to winter, while "JUN-JUL-AUG" belongs to summer as a standard convention being used.
+
+Go to [this link](https://davidcarslaw.github.io/openair/reference/windRose.html) to get familiar with the wind rose plot.
+
+### Plot for winter wind data
+
+```{r}
+winter_df <- wind_df_tbl_fixed %>%
+  filter(wind_df_tbl_fixed$month == 12 |
+    wind_df_tbl_fixed$month == 1 |
+    wind_df_tbl_fixed$month == 2) # DEC-JAN-FEB
+
+winter_df
+```
+
+```{r fig.align='center'}
+windRose(winter_df,
+  ws = "wind_spd",
+  wd = "wind_dir",
+  ws.int = 4,
+  angle = 22.5,
+  cols = "hue",
+  paddle = FALSE
+)
+```
+
+### Plot for summer wind data
+
+```{r}
+summer_df <- wind_df_tbl_fixed %>%
+  filter(wind_df_tbl_fixed$month == 6 |
+    wind_df_tbl_fixed$month == 7 |
+    wind_df_tbl_fixed$month == 8) # JUN-JUL-AUG
+
+summer_df
+```
+
+```{r fig.align='center'}
+windRose(summer_df,
+  ws = "wind_spd",
+  wd = "wind_dir",
+  ws.int = 4,
+  angle = 22.5,
+  cols = "hue",
+  paddle = FALSE
+)
+```
