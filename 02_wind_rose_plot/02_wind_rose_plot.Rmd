@@ -1,10 +1,14 @@
 ---
 title: "Wind rose plot"
 author: "*Raynaldi Pratama*"
-#date: "03/03/2021"
+date: "03/03/2021"
 output: 
-  html_document:
-    toc: TRUE
+  rmdformats::downcute:
+    self_contained: TRUE
+    thumbnails: TRUE
+    lightbox: TRUE
+    gallery: TRUE
+    highlight: tango
 ---
 
 ```{r setup, include=FALSE}

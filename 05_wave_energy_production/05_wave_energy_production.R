@@ -285,7 +285,7 @@ boxplot(power5_kW,
   border = "brown",
   xlab = "Turbine(s)", ylab = "Power production (kW)", xaxt = "n",
   main = "Power production of each turbine",
-  notch = TRUE, 
+  notch = TRUE,
   varwidth = TRUE
 )
 

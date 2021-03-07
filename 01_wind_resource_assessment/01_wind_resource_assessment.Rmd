@@ -1,12 +1,14 @@
 ---
 title: "Wind resource assessment"
 author: "*Raynaldi Pratama*"
-#date: "01/03/2021"
+date: "01/03/2021"
 output: 
-  html_notebook:
-    toc: TRUE
-    toc_float: TRUE
-    theme: flatly
+  rmdformats::downcute:
+    self_contained: TRUE
+    thumbnails: TRUE
+    lightbox: TRUE
+    gallery: TRUE
+    highlight: tango
 ---
 
 ```{r setup, include=FALSE}
