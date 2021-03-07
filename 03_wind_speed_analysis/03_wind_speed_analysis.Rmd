@@ -1,0 +1,13 @@
+---
+title: "Wind speed analysis"
+author: "*Raynaldi Pratama*"
+#date: "07/03/2021"
+output: 
+  html_document:
+    toc: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+

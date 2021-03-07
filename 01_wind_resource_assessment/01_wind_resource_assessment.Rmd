@@ -3,8 +3,10 @@ title: "Wind resource assessment"
 author: "*Raynaldi Pratama*"
 #date: "01/03/2021"
 output: 
-  html_document:
+  html_notebook:
     toc: TRUE
+    toc_float: TRUE
+    theme: flatly
 ---
 
 ```{r setup, include=FALSE}
@@ -15,7 +17,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 **Library setup:**
 
-```{r message=FALSE}
+```{r message=FALSE, warning=FALSE}
 # World map data from Natural Earth
 library(rnaturalearth)
 library(rnaturalearthdata)
@@ -103,6 +105,8 @@ ggplot() +
   ggtitle("Bay of Biscay")
 ```
 
+***
+
 ## The average wind speed
 
 In this section, we try to estimate the average wind speed at the hub height based on the wind recorded data from the 3 m reference height of the buoy. This approach is useful; suppose we plan to deploy the real offshore wind turbine (OWT) near the buoy location. In this case, an OWT of MWT-92/2.4 with 70 m hub height has been chosen. Another pre-determined condition: the terrain profile of 'blown sea' with the surface roughness length (approximated) value of 0.50 mm.
@@ -148,6 +152,8 @@ windSpeed70 <- windSpeed * log(70 / 0.0005) / log(3 / 0.0005)
 
 summary(windSpeed70)
 ```
+
+***
 
 ## Weibull distribution fit
 
@@ -227,6 +233,8 @@ workinghrs <- (F25 - F3) * 365 * 24 # Considering 365 days per year
 workinghrs
 ```
 
+***
+
 ## Initial AEP and CF
 
 Below are the steps of estimating the initial value of the annual energy production (AEP) and capacity factor (CF) of OWT without considering the turbine's power curve. AEP can be calculated using the following equation:
@@ -288,6 +296,8 @@ CF0
 
 The result above shows that the initial AEP and CF are considered relatively high for the typical wind turbine. Thus, the power curve needs to be taken into consideration while calculating the more realistic value of AEP and CF.
 
+***
+
 ## Wind power density
 
 The wind power density can be estimated using the equation below:
@@ -302,7 +312,7 @@ Where, $P / A$ = Wind power density (W/m^2^) with the following classification:
 
 ### Plot the monhtly air density
 
-```{r}
+```{r fig.align='center'}
 monthlyAirDensity <- cbind(buoydata[, 1:4], rho)
 
 boxplot(monthlyAirDensity[, 5] ~ monthlyAirDensity[, 2],
@@ -321,6 +331,8 @@ WPD <- 0.5 * rho * (windSpeed70^3)
 
 summary(WPD)
 ```
+
+***
 
 ## Actual AEP and CF
 
