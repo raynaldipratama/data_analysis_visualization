@@ -20,6 +20,9 @@ knitr::opts_chunk$set(echo = TRUE)
 **Library setup:**
 
 ```{r message=FALSE, warning=FALSE}
+# Working with table
+library(kableExtra)
+
 # World map data from Natural Earth
 library(rnaturalearth)
 library(rnaturalearthdata)
@@ -34,8 +37,6 @@ library(dplyr)
 # Statistical function
 library(MASS)
 ```
-
-***
 
 ## Bilbao-Vizcaya buoy location
 
@@ -107,8 +108,6 @@ ggplot() +
   ggtitle("Bay of Biscay")
 ```
 
-***
-
 ## The average wind speed
 
 In this section, we try to estimate the average wind speed at the hub height based on the wind recorded data from the 3 m reference height of the buoy. This approach is useful; suppose we plan to deploy the real offshore wind turbine (OWT) near the buoy location. In this case, an OWT of MWT-92/2.4 with 70 m hub height has been chosen. Another pre-determined condition: the terrain profile of 'blown sea' with the surface roughness length (approximated) value of 0.50 mm.
@@ -121,8 +120,11 @@ buoydata <- read.table("BilbaoVizcaya.txt", header = TRUE) # Find the corespondi
 buoydata <- buoydata %>%
   filter(buoydata$AA > "2009") # To obtain the best records and to avoid a whole-year missing data
 
-summary(buoydata)
+kbl(summary(buoydata)) %>%
+  kable_paper() %>%
+  scroll_box(width = "100%", height = "300px")
 ```
+
 ### Replace NA values
 
 At this point, we may notice that the buoy dataset contains many of NA’s value, including the particular observation of the wind speed ‘Vv_md’ column we need to handle. One way to take care of these NA’s value is by omitting them using **`na.omit()`**. For this typical dataset, only eliminating the NA’s data will give a much different result since each category's total observation is related to one another. Thus, replacing NA’s with the proper value, e.g., the average or median of the recorded data, has to be considered.
@@ -154,8 +156,6 @@ windSpeed70 <- windSpeed * log(70 / 0.0005) / log(3 / 0.0005)
 
 summary(windSpeed70)
 ```
-
-***
 
 ## Weibull distribution fit
 
@@ -235,8 +235,6 @@ workinghrs <- (F25 - F3) * 365 * 24 # Considering 365 days per year
 workinghrs
 ```
 
-***
-
 ## Initial AEP and CF
 
 Below are the steps of estimating the initial value of the annual energy production (AEP) and capacity factor (CF) of OWT without considering the turbine's power curve. AEP can be calculated using the following equation:
@@ -298,8 +296,6 @@ CF0
 
 The result above shows that the initial AEP and CF are considered relatively high for the typical wind turbine. Thus, the power curve needs to be taken into consideration while calculating the more realistic value of AEP and CF.
 
-***
-
 ## Wind power density
 
 The wind power density can be estimated using the equation below:
@@ -333,8 +329,6 @@ WPD <- 0.5 * rho * (windSpeed70^3)
 
 summary(WPD)
 ```
-
-***
 
 ## Actual AEP and CF
 

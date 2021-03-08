@@ -240,5 +240,7 @@ $RECYCLE.BIN/
 01_wind_resource_assessment/rsconnect/
 02_wind_rose_plot/BilbaoVizcaya.txt
 02_wind_rose_plot/rsconnect
+03_wind_speed_analysis/rsconnect
+03_wind_speed_analysis/BilbaoVizcaya.txt
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,visualstudiocode,r,python,jupyternotebooks

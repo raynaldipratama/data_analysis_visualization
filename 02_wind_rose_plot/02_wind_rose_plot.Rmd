@@ -20,6 +20,9 @@ knitr::opts_chunk$set(echo = TRUE)
 **Library setup:**
 
 ```{r warning=FALSE, message=FALSE}
+# Working with table
+library(kableExtra)
+
 # Quickly visualizing data
 library(visdat)
 
@@ -37,8 +40,6 @@ library(tidyverse)
 library(openair)
 ```
 
-***
-
 ## Bilbao-Vizcaya buoy data
 
 ### Load the data
@@ -49,7 +50,9 @@ buoydata <- read.table("BilbaoVizcaya.txt", header = TRUE) # Find the corespondi
 buoydata <- buoydata %>%
   filter(buoydata$AA > "2009") # To obtain the best records and to avoid a whole-year missing data
 
-summary(buoydata)
+kbl(summary(buoydata)) %>%
+  kable_paper() %>%
+  scroll_box(width = "100%", height = "300px")
 ```
 
 ### Wind speed and direction
@@ -73,8 +76,6 @@ wind_df_tbl <- wind_df %>% as_tibble()
 
 wind_df_tbl
 ```
-
-***
 
 ## Missing data visualizations
 
@@ -111,8 +112,6 @@ wind_df_tbl %>%
 ```
 
 We can see how all recorded data corresponding to wind speed and wind direction are distributed from the figure above. Off all the visualized data, we can also see the visualization of missing values in red dots from both data categories. There are depicted missing values for wind direction to the left part of the figure, while the lower part of the figure shows some missing values for wind speed.
-
-***
 
 ## Missing data imputation
 
@@ -165,8 +164,6 @@ wind_df_tbl_fixed <- wind_df_tbl %>%
   impute_rf(wind_dir ~ wind_spd + month)
 ```
 
-***
-
 ## Wind rose plot
 
 Follow these steps to plot the wind rose to visualise how the wind blows in a particular area with a specific velocity and direction during the extreme seasons, winter and summer. The results can be compared to the one provided on the Spanish authorities website, [Puertos del Estado](http://www.puertos.es/en-us/oceanografia/Pages/portus.aspx), by specifying the exact period of observation. The method used to handle the NA's value in the following script has been mentioned in the earlier section. The only addition is that we need to specify which months belong to each season. In this case, "DEC-JAN-FEB" belongs to winter, while "JUN-JUL-AUG" belongs to summer as a standard convention being used.
@@ -181,7 +178,9 @@ winter_df <- wind_df_tbl_fixed %>%
     wind_df_tbl_fixed$month == 1 |
     wind_df_tbl_fixed$month == 2) # DEC-JAN-FEB
 
-winter_df
+kbl(winter_df) %>%
+  kable_paper() %>%
+  scroll_box(width = "100%", height = "300px")
 ```
 
 ```{r fig.align='center'}
@@ -203,7 +202,9 @@ summer_df <- wind_df_tbl_fixed %>%
     wind_df_tbl_fixed$month == 7 |
     wind_df_tbl_fixed$month == 8) # JUN-JUL-AUG
 
-summer_df
+kbl(summer_df) %>%
+  kable_paper() %>%
+  scroll_box(width = "100%", height = "300px")
 ```
 
 ```{r fig.align='center'}

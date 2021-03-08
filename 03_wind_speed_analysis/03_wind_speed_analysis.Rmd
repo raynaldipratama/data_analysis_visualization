@@ -15,3 +15,179 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+**Notes:** This portfolio presents a short analysis of the extreme event of wind speed occurrence at Bilbao-Vizcaya buoy location. The reference location was selected based on the available dataset used in two previous portfolios, i.e., [wind resource assessment](https://rpubs.com/raynaldiprtm/data-anavis-01) and [wind rose plot](https://rpubs.com/raynaldiprtm/data-anavis-02).
+
+**Library setup:**
+
+```{r warning=FALSE, message=FALSE}
+# Working with table
+library(kableExtra)
+
+# Extreme values
+library(ismev)
+library(evir)
+```
+
+## Bilbao-Vizcaya buoy data
+
+### Load the data
+
+```{r}
+buoydata <- read.table("BilbaoVizcaya.txt", header = TRUE)
+
+kbl(summary(buoydata)) %>%
+  kable_paper() %>%
+  scroll_box(width = "100%", height = "300px")
+```
+
+### Annual maximum wind speed
+
+The vector of annual maximum wind speed will be retrieved from Bilbao-Vizcaya buoy data. In this case, the exclusion applied from 1997 and the years before, since in 1997, there is no wind speed recorded data at all (equals "NAN"). Additionally, the year 2014 will also be excluded as there are only two months of data that doesn't represent the whole year observations.
+
+```{r}
+windSpeedMax <- c()
+
+for (i in 1998:2013) {
+  year <- which(buoydata$AA == i)
+  windSpeedMax[i - 1997] <- max(buoydata[year, 22], na.rm = TRUE)
+}
+
+windSpeedMax # Annual max win speeds from 1998 to 2013 at 3 m height
+```
+
+### **`windSpeedMax`** at 70 m height
+
+```{r}
+windSpeedMax70 <- windSpeedMax * log(70 / 0.0005) / log(3 / 0.0005)
+
+windSpeedMax70 # Annual max win speeds from 1998 to 2013 at 70 m height
+```
+
+## GEV distribution fit
+
+```{r results='hide'}
+fit <- gev.fit(windSpeedMax70)
+```
+
+```{r}
+# Negative (maximised) log–likelihood
+fit$nllh
+
+# Maximum likelihood estimates for µ, s and s respectively
+fit$mle[1] # µ (location)
+
+fit$mle[2] # s (scale)
+
+fit$mle[3] # s (shape)
+
+# Associated standard errors for the above parameters
+fit$se
+```
+
+## Expected max wind speeds
+
+Below are the results showing 10, 20, 30, 40, 50, 70, 100 years expected maximum wind speeds with the limit of central value at 95% confidence level.
+
+```{r}
+gevdistr <- gev(windSpeedMax70)
+
+matA <- matrix(NaN, nrow = 7, ncol = 4) # Empty matrix
+
+years <- c(10, 20, 30, 40, 50, 70, 100)
+
+matA[, 1] <- years
+
+for (i in 1:7) {
+  matA[i, 2:4] <- rlevel.gev(gevdistr, years[i],
+    add = FALSE,
+    xlab = "Return level",
+    ylab = "Profile log–likelihood"
+  )
+}
+
+matA # Matrix A is presented without proper column names
+```
+
+```{r}
+rownames(matA) <- c("1", "2", "3", "4", "5", "6", "7")
+
+colnames(matA) <- c(
+  "n-years",
+  "Lower limit",
+  "Central value",
+  "Upper limit"
+)
+
+matA # All values are in m/sec
+```
+
+## Extreme operating gust
+
+Before estimating the extreme operating gust, the SD (standard deviation) of the turbulence in the longitudinal average wind direction has to be calculated. It is assumed that the turbulence intensity is 0.16 (higher turbulence characteristics as determined in the standard). The following formula is used to calculate the standard deviation based on international standard IEC 61400-1:
+
+$$\sigma_x = I_{ref}(0.75U_{hub}+5.6)$$
+
+Where, $I_{ref}$ is expected value of hub-height turbulence intensity at a 10 min average wind speed of 15 m/s.
+
+### Average wind speed
+
+```{r}
+windSpeedAvg <- c()
+
+for (i in 1998:2013) {
+  year <- which(buoydata$AA == i)
+  windSpeedAvg[i - 1997] <- mean(buoydata[year, 22], na.rm = TRUE)
+}
+
+windSpeedAvg # Annual average win speeds from 1998 to 2013 at 3 m height
+```
+### **`windSpeedAvg`** at 70 m height
+
+```{r}
+windSpeedAvg70 <- windSpeedAvg * log(70 / 0.0005) / log(3 / 0.0005)
+
+windSpeedAvg70 # Annual average win speeds from 1998 to 2013 at 70 m height
+```
+
+### Standard deviation
+
+```{r}
+Iref <- 0.16
+
+Uhub <- mean(windSpeedAvg70)
+
+SD <- Iref * (0.75 * Uhub + 5.6)
+
+SD
+```
+
+### IEC 50-year gust
+
+```{r}
+D <- 92 # Blade diameter in m
+
+Ugust50 <- 6.4 * (SD / (1 + (0.1 * D / 21)))
+
+Ugust50
+```
+
+```{r fig.align='center'}
+T <- 14 # Time in sec
+
+Ut <- c()
+
+for (t in 0:15) {
+  Ut[t] <- Uhub - 0.37 * Ugust50 *
+    sin((3 * pi * (t - 1)) / T) *
+    (1 - cos((2 * pi * (t - 1)) / T))
+}
+
+sec <- seq(0, 14, by = 1) # Time in sec
+
+plot(sec, Ut,
+  type = "b", lwd = 3, col = "red",
+  xlab = "Time (sec)",
+  ylab = "Wind speed (m/s)",
+  main = "Extreme operating gust"
+)
+```

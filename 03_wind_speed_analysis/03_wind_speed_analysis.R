@@ -40,7 +40,9 @@ fit$nllh
 
 # Maximum likelihood estimates for µ, s and <U+03BE> respectively
 fit$mle[1] # µ (location)
+
 fit$mle[2] # s (scale)
+
 fit$mle[3] # <U+03BE> (shape)
 
 # Associated standard errors for the above parameters
