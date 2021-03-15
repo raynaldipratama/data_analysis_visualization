@@ -48,11 +48,11 @@ identified_lon <- which.min(abs(lon - buoy_lon))
 
 identified_lat <- which.min(abs(lat - buoy_lat))
 
-min_lon <- lon[identified_lon]
+nearest_lon <- lon[identified_lon]
 
-min_lat <- lat[identified_lat]
+nearest_lat <- lat[identified_lat]
 
-dist <- distance(buoy_lat, min_lat, buoy_lon, min_lon)
+dist <- distance(buoy_lat, nearest_lat, buoy_lon, nearest_lon)
 
 dist # Given distance in km
 
@@ -115,7 +115,7 @@ length(windSpeed10) # Bibao-Vizcaya buoy
 
 length(windModel) # ERA-Interim
 
-# * Plot the both wind data ----
+# * Plot both wind data ----
 
 plot(c(1:length(windSpeed10)), windModel,
   type = "l",
@@ -132,7 +132,6 @@ legend("topleft",
   lty = 1,
   legend = c("Wind data from buoy", "Wind data from ERAI model")
 )
-
 
 # 3.0 Box plot and wind rose ----
 

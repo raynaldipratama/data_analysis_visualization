@@ -1,0 +1,520 @@
+---
+title: "Wind data comparison"
+author: "*Raynaldi Pratama*"
+date: "08/03/2021"
+output: 
+  rmdformats::downcute:
+    self_contained: TRUE
+    thumbnails: TRUE
+    lightbox: TRUE
+    gallery: TRUE
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+**Notes:** Another addition to the previous wind energy-related portfolios, explaining methods on wind data comparison between Bilbao-Vizcaya buoy dataset, as a reference, and ERA-Interim model.
+
+**Library setup:**
+
+```{r warning=FALSE, message=FALSE}
+# Working with table
+library(kableExtra)
+
+# NetCDF in R
+library(RNetCDF)
+
+# Argos location filter
+library(argosfilter)
+
+# World map data from Natural Earth
+library(rnaturalearth)
+library(rnaturalearthdata)
+
+# Data visualization
+library(ggplot2)
+library(ggspatial)
+
+# Manipulating and analysing data
+library(tidyverse)
+
+# Wind components transformation
+library(rWind)
+
+# Wind rose plot
+library(openair)
+
+# Taylor diagram
+library(plotrix)
+
+# Evaluation metrics
+library(Metrics)
+```
+
+## ERAI wind data Oct-2011
+
+### Load the data
+
+The ERAI data that we are going to use here is for the October 2011 records. In the next analysis, where the buoy data is used for comparison, we have to ensure that the corresponding timeframe should follow the ERAI model accordingly.
+
+```{r}
+ncdata <- open.nc("ERA-Interim Oct 2011.nc") # Find the corresponding dataset inside 00_data/
+
+print.nc(ncdata)
+```
+
+From the results above, we can inspect the content of **`ncdata`**, including dimensions, variables and global attributes. Afterwards, suppose we want to know the length of the data recorded during this period, we could pass the desired argument inside **`var.get.nc()`**. In this case, **`ncdata`** as the main dataset and **`"time"`** to get the number of recording time.
+
+```{r}
+# Retrieve number of recording time
+time <- var.get.nc(ncdata, "time")
+
+length(time)
+```
+
+We should keep in mind that the recording time from the dataset above is 124, as we might want to use this information in the next analysis.
+
+### Identify the nearest grid point location
+
+In this part, we would like to identify the nearest grid point location to the Bilbao-Vizcaya buoy. Of all grid points covered in this dataset, we can obtain the one located near the buoy and get the relative distance by doing several steps below. Afterwards, we will extract the wind data from the corresponding location to compare with the one provided by the buoy. To start, we can use the similar way as we did previously, but this time we should pass the argument **`"longitude"`** and **`"latitude"`** inside **`var.get.nc()`** to get the desired grid points.
+
+```{r}
+lon <- var.get.nc(ncdata, "longitude")
+
+lon
+```
+
+```{r}
+lat <- var.get.nc(ncdata, "latitude")
+
+lat
+```
+
+Subsequently, to find the desired point, we first need to specify the Bilbao-Vizcaya buoy location. The idea is to find the minimum value (closest distance) by subtracting **`lon`** and **`lat`** we obtained before with the buoy coordinates.
+
+```{r}
+buoy_lon <- -3.04 # Bilbao-Vizcaya buoy
+
+buoy_lat <- 43.63 # Bilbao-Vizcaya buoy
+
+identified_lon <- which.min(abs(lon - buoy_lon))
+
+identified_lat <- which.min(abs(lat - buoy_lat))
+```
+
+Finally, we can now extract the nearest grid point coordinates from the information we obtained above and determine its relative distance from the buoy.
+
+```{r}
+nearest_lon <- lon[identified_lon]
+
+nearest_lon
+```
+
+```{r}
+nearest_lat <- lat[identified_lat]
+
+nearest_lat
+```
+
+```{r}
+dist <- distance(buoy_lat, nearest_lat, buoy_lon, nearest_lon)
+
+dist # Given distance in km
+```
+
+To complete the steps, one might want to create a map visualization to see where the nearest grid point is located relative to the buoy location.
+
+```{r fig.align='center', message=FALSE}
+spdf_world <- ne_countries(scale = "medium", returnclass = "sf") # Spatial polygons df
+
+sldf_world <- ne_coastline(scale = "medium", returnclass = "sf") # Spatial lines df
+
+ggplot() +
+  geom_sf(data = spdf_world) +
+  geom_sf(data = sldf_world, size = 0.75) +
+  annotation_scale(width_hint = 0.5, location = "bl") +
+  annotation_north_arrow(
+    location = "tl",
+    height = unit(1.5, "cm"),
+    width = unit(1.5, "cm"),
+    pad_x = unit(0.25, "cm"),
+    pad_y = unit(0.25, "cm"),
+    style = north_arrow_fancy_orienteering
+  ) +
+  annotate(
+    geom = "text",
+    x = -6,
+    y = 46,
+    label = "Bay of Biscay",
+    fontface = "italic",
+    color = "darkblue",
+    size = 4
+  ) +
+  annotate(
+    geom = "point",
+    x = -3.04,
+    y = 43.63,
+    colour = "red",
+    size = 2
+  ) +
+  annotate(
+    geom = "text",
+    x = -3,
+    y = 43.85,
+    label = "Bilbao-Vizcaya buoy",
+    size = 3
+  ) +
+  annotate(
+    geom = "point",
+    x = -3,
+    y = 43.5,
+    colour = "blue",
+    size = 2
+  ) +
+  annotate(
+    geom = "text",
+    x = -3,
+    y = 43.3,
+    label = "The nearest grid point",
+    size = 3
+  ) +
+  coord_sf(xlim = c(-12, 2), ylim = c(40, 50), expand = FALSE) +
+  theme(
+    panel.grid.major = element_line(
+      color = gray(0.5), linetype = "dashed", size = 0.5
+    ),
+    panel.background = element_rect(fill = "aliceblue")
+  ) +
+  xlab("Longitude") +
+  ylab("Latitude") +
+  ggtitle("Bay of Biscay")
+```
+
+### Extract wind components
+
+The codes written below shows how to extract both wind components, zonal and meridional. The reading (extraction) starts from the nearest grid point elements. The results should be of 124 lengths of data.
+
+```{r}
+# Zonal component
+U <- var.get.nc(ncdata, "u10",
+  start = c(identified_lon, identified_lat, 1),
+  count = c(1, 1, length(time)), unpack = TRUE
+)
+
+# Meridional component
+V <- var.get.nc(ncdata, "v10",
+  start = c(identified_lon, identified_lat, 1),
+  count = c(1, 1, length(time)), unpack = TRUE
+)
+```
+
+### ERAI wind model
+
+Finally, we can now determine the ERAI wind data (model) according to its zonal and meridional components using the common formula applied in the line of code below.
+
+```{r}
+windModel <- sqrt(U^2 + V^2)
+
+summary(windModel)
+
+length(windModel)
+```
+
+## Bilbao-Vizcaya buoy data
+
+### Load the data
+
+As mentioned before, since the available ERAI dataset is only available for the Oct-2011 records, we should then select the appropriate time frame within our buoy dataset to match our ERAI dataset.
+
+```{r}
+buoydata <- read.table("BilbaoVizcaya.txt", header = TRUE)
+
+buoydata_oct2011 <- buoydata %>%
+  filter(buoydata$AA == "2011" &
+    buoydata$MM == "10")
+
+kbl(summary(buoydata_oct2011)) %>%
+  kable_paper() %>%
+  scroll_box(width = "100%", height = "300px")
+```
+
+### Match both wind data
+
+```{r}
+# Match wind data from buoy with 6-hourly sequence of ERAI
+seq_6h <- seq(0, nrow(buoydata_oct2011), 6)
+
+seq_6h
+```
+
+```{r}
+windSpeed <- buoydata_oct2011[seq_6h, 22] # Column 22 (Vv_md)
+
+windSpeed
+```
+
+### Transform wind speed to 10 m height
+
+```{r}
+windSpeed10 <- windSpeed * log(10 / 0.0005) / log(3 / 0.0005)
+
+summary(windSpeed10)
+```
+
+### Verify the length of wind data
+
+```{r}
+length(windSpeed10) # Bibao-Vizcaya buoy
+
+length(windModel) # ERA-Interim
+```
+
+### Plot both wind data
+
+```{r fig.align='center'}
+plot(c(1:length(windSpeed10)), windModel,
+  type = "l",
+  main = "Wind data from buoy and ERAI model",
+  xlab = "n-record",
+  ylab = "Wind speed (m/s)",
+  col = "blue"
+)
+
+lines(windSpeed10, col = "red")
+
+legend("topleft",
+  col = c("red", "blue"),
+  lty = 1,
+  legend = c("Bilbao-Vizcaya buoy", "ERAI model")
+)
+```
+
+The figure above shows that the data records represented by the buoy are generally larger than the ones provided by the model. However, both graphs share a relatively similar trend throughout the records.
+
+## Box plot and wind rose
+
+### Box plot
+
+```{r fig.align='center'}
+boxplot(windSpeed10, windModel,
+  col = c("red", "blue"),
+  names = c("Bilbao-Vizcaya buoy", "ERAI model"),
+  ylab = "Wind speed (m/s)",
+  main = "Wind data (speed) comparison for Oct-2011 records"
+)
+```
+
+Another visualization presented in box plots shows the difference in wind speed data between the buoy and ERAI models. It can be seen that the average value presented by the buoy is just above 5 m/s, larger than it is shown by the model, where the average wind speed is around 4 m/s.
+
+### Wind rose
+
+Below are codes we are going to use to create a wind rose plot based on the data provided by the buoy for the Oct-2011 records.
+
+```{r fig.align='center'}
+# Bilbao-Vizcaya buoy
+year <- buoydata_oct2011$AA
+
+month <- buoydata_oct2011$MM
+
+day <- buoydata_oct2011$DD
+
+hour <- buoydata_oct2011$HH
+
+wind_spd <- buoydata_oct2011$Vv_md
+
+wind_dir <- buoydata_oct2011$Dv_md
+
+wind_df <- data.frame(year, month, day, hour, wind_spd, wind_dir)
+
+kbl(wind_df) %>%
+  kable_paper() %>%
+  scroll_box(width = "100%", height = "300px")
+
+windRose(wind_df,
+  ws = "wind_spd",
+  wd = "wind_dir",
+  ws.int = 4,
+  angle = 22.5,
+  cols = "hue",
+  paddle = FALSE
+)
+```
+
+A similar method may also be used to visualize a wind rose plot of the ERAI model. However, it should be noted that before we proceed, such wind components transformation is needed and can be done by passing both **`U`** and **`V`** objects inside **`uv2ds()`** command.
+
+```{r fig.align='center'}
+# ERA-Interim (option 1)
+wind_df_erai <- as.data.frame(uv2ds(-U, -V))
+
+names(wind_df_erai)[1] <- "Wind Direction"
+
+names(wind_df_erai)[2] <- "Wind Speed"
+
+kbl(wind_df_erai) %>%
+  kable_paper() %>%
+  scroll_box(width = "100%", height = "300px")
+
+windRose(wind_df_erai,
+  ws = "Wind Speed",
+  wd = "Wind Direction",
+  ws.int = 4,
+  angle = 22.5,
+  cols = "hue",
+  paddle = FALSE
+)
+```
+
+Another way to get through the wind components transformation, we can build a user-defined function instead of using **`uv2ds()`** command. Although it might look more complex, this way, we can avoid any misconception regarding the object signs (+) or (-), according to the wind direction's general convention.
+
+```{r fig.align='center'}
+# ERA-Interim (option 2); a user-defined function
+uv2wdws <- function(u, v) {
+
+  # Radians to degrees transformation
+  degrees <- function(radians) 180 * radians / pi
+
+  # Apply degrees() to convert radians to degrees; use atan2() inside degrees()
+  # to determine the angle from both wind components
+  angle <- degrees(atan2(v, u))
+
+  # Fix negative angles from the previous section and change the wind rose
+  # convention to show from which direction the wind comes from
+  wind_dir_fix <- ifelse(angle > 0, angle, angle + 360)
+
+  wind_dir <- ifelse(wind_dir_fix < 270,
+    270 - wind_dir_fix, 270 - wind_dir_fix + 360
+  )
+
+  wind_spd <- sqrt(u^2 + v^2)
+
+  return(cbind(wind_dir, wind_spd))
+}
+
+wind_df_erai <- as.data.frame(uv2wdws(U, V))
+
+names(wind_df_erai)[1] <- "Wind Direction"
+
+names(wind_df_erai)[2] <- "Wind Speed"
+
+kbl(wind_df_erai) %>%
+  kable_paper() %>%
+  scroll_box(width = "100%", height = "300px")
+
+windRose(wind_df_erai,
+  ws = "Wind Speed",
+  wd = "Wind Direction",
+  ws.int = 4,
+  angle = 22.5,
+  cols = "hue",
+  paddle = FALSE
+)
+```
+
+## Taylor diagram
+
+The Taylor diagram in R is available through **`plotrix`** package. This diagram allows us to compare two data by representing three parameters at once in the same plot. These parameters are including Standard Deviation, Root Mean Square Error (RMSE), and Correlation.
+
+### Wind speed data
+
+```{r fig.align='center', fig.asp=1}
+taylor.diagram(windSpeed10, windModel,
+  pch = 19,
+  pos.cor = TRUE,
+  xlab = "Standard deviation",
+  ylab = "Standard deviation",
+  main = "Taylor Diagram",
+  ngamma = 10,
+  gamma.col = "green",
+  sd.arcs = TRUE,
+  pcex = 1.5
+)
+```
+
+According to the figure above, we may see the model representation in the red dot object. From that object, we can conclude that the ERAI dataset (model) has a Standard Deviation value of around **1.9** by following the XY-axis and the blue arc. For the model's RMSE value, we might want to refer to the green arc, where it is nearly **2.5**. Simultaneously, the Correlation value can be traced from the dashed line, which, in this case, is above **0.65**. Additionally, we can also see the buoy data represented in a black-outlined circle showing the Standard Deviation value of around **3.2**.
+
+### Evaluate the taylor diagram
+
+Below are several ways to manually evaluate the Taylor diagram using some commands corresponding to the three parameters presented previously.
+
+```{r}
+# Standard deviation of ERA-Interim model
+sd(windModel)
+
+# Standard deviation of buoy data
+sd(windSpeed10)
+
+# RMSE
+rmse(windSpeed10, windModel)
+
+# Correlation value
+cor(windSpeed10, windModel)
+```
+
+From the results above, we can see that almost all values are similar to what has been presented by the diagram. The only difference is the RMSE value of **2.94**. The difference thus suggests the upper and lower limit for the RMSE value for further necessary analysis. In any case, both model and buoy data follow the same pattern in terms of the overall behaviour, represented by a good correlation value of **0.674**.
+
+### Wind speed components
+
+By following the previous steps, the Taylor diagram may also be used to evaluate the buoy's wind components data (zonal/meridional) over the wind speed provided by the model (combined zonal-meridional). The remaining process is covered in the lines of codes written below.
+
+```{r fig.align='center', fig.asp=1}
+# Match wind data from buoy with 6-hourly sequence of ERAI
+windDirection <- buoydata_oct2011[seq_6h, 23] # Column 23 (Dv_md)
+
+windDirection
+
+# Create a user-defined function
+wdws2uv <- function(wd, ws) {
+
+  # Adjust the angles to avoid negative cos & sin values
+  wd_u <- ifelse(wd > 180 & wd < 360, wd + 180, wd)
+  wd_v <- ifelse(wd > 90 & wd < 270, wd + 180, wd)
+  wd_u_ang <- ifelse(wd_u > 360, wd_u - 360, wd_u)
+  wd_v_ang <- ifelse(wd_v > 360, wd_v - 360, wd_v)
+
+  # Convert angles to radians
+  wd_u_rad <- wd_u_ang * (pi / 180)
+  wd_v_rad <- wd_v_ang * (pi / 180)
+
+  # Calculating components according to the meteorology wind convention
+  U <- ws * sin(wd_u_rad)
+  V <- ws * cos(wd_v_rad)
+
+  return(cbind(U, V))
+}
+
+wind_uv_components <- as.data.frame(wdws2uv(windDirection, windSpeed10))
+
+kbl(wind_uv_components) %>%
+  kable_paper() %>%
+  scroll_box(width = "100%", height = "300px")
+
+# Taylor diagram for wind zonal component from buoy vs
+# ERAI wind speed (combined U & V)
+taylor_diagram_U <- taylor.diagram(wind_uv_components[, 1], windModel,
+  pch = 19,
+  pos.cor = TRUE,
+  xlab = "Standard deviation",
+  ylab = "Standard deviation",
+  main = "Taylor Diagram (zonal component)",
+  ngamma = 10,
+  gamma.col = "green",
+  sd.arcs = TRUE,
+  pcex = 1.5
+)
+
+# Taylor diagram for wind meridional component from buoy vs
+# ERAI wind speed (combined U & V)
+taylor_diagram_V <- taylor.diagram(wind_uv_components[, 2], windModel,
+  pch = 19,
+  pos.cor = TRUE,
+  xlab = "Standard deviation",
+  ylab = "Standard deviation",
+  main = "Taylor Diagram (meridional component)",
+  ngamma = 10,
+  gamma.col = "green",
+  sd.arcs = TRUE,
+  pcex = 1.5
+)
+```
