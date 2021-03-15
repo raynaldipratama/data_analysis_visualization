@@ -245,5 +245,11 @@ $RECYCLE.BIN/
 04_wind_data_comparison/rsconnect
 04_wind_data_comparison/BilbaoVizcaya.txt
 04_wind_data_comparison/ERA-Interim Oct 2011.nc
+05_wave_energy_production/rsconnect
+05_wave_energy_production/BB_2015.txt
+05_wave_energy_production/KWH_2015.txt
+05_wave_energy_production/POSVALV_2015.txt
+05_wave_energy_production/POW_2015.txt
+05_wave_energy_production/PRES_2015.txt
 
 # End of https://www.toptal.com/developers/gitignore/api/windows,visualstudiocode,r,python,jupyternotebooks
